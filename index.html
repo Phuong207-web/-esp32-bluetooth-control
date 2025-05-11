@@ -1,0 +1,281 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2113.2">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 14.7px Arial; -webkit-text-stroke: #000000}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000; min-height: 14.0px}
+    span.s1 {font-kerning: none}
+    span.s2 {font: 14.7px 'Apple Color Emoji'; font-kerning: none}
+  </style>
+</head>
+<body>
+<p class="p1"><span class="s1"><br>
+&lt;!DOCTYPE html&gt;</span></p>
+<p class="p1"><span class="s1">&lt;html&gt;</span></p>
+<p class="p1"><span class="s1">&lt;head&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;meta charset="UTF-8"&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;title&gt;ESP32 BLE Motor Control&lt;/title&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;style&gt;</span></p>
+<p class="p1"><span class="s1">    body { font-family: sans-serif; margin: 20px; }</span></p>
+<p class="p1"><span class="s1">    h1 { color: #333; }</span></p>
+<p class="p1"><span class="s1">    button { padding: 10px 20px; margin: 5px; font-size: 16px; }</span></p>
+<p class="p1"><span class="s1">    input[type=number] { padding: 5px; font-size: 16px; width: 100px; }</span></p>
+<p class="p1"><span class="s1">    .status { margin-top: 10px; font-weight: bold; }</span></p>
+<p class="p1"><span class="s1">  &lt;/style&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
+<p class="p1"><span class="s1">&lt;body&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;h1&gt;ESP32 BLE Motor Control&lt;/h1&gt;</span></p>
+<p class="p1"><span class="s1">  </span></p>
+<p class="p1"><span class="s1">  &lt;button id="connectBleButton"&gt;</span><span class="s2">🔌</span><span class="s1"> Connect BLE&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;button id="disconnectBleButton"&gt;</span><span class="s2">❌</span><span class="s1"> Disconnect&lt;/button&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  &lt;h2&gt;Motor Control&lt;/h2&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;label for="rpmInput"&gt;Set RPM:&lt;/label&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;input type="number" id="rpmInput" value="150" min="0" max="3000"&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;button id="sendRPMButton"&gt;Send RPM&lt;/button&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;p&gt;Last RPM Sent: &lt;span id="valueSent"&gt;None&lt;/span&gt;&lt;/p&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  &lt;h2&gt;Current RPM&lt;/h2&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;p&gt;&lt;strong id="valueContainer"&gt;---&lt;/strong&gt; RPM&lt;/p&gt;</span></p>
+<p class="p1"><span class="s1">  &lt;p&gt;Last update: &lt;span id="timestamp"&gt;Never&lt;/span&gt;&lt;/p&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  &lt;p class="status" id="bleState"&gt;Disconnected&lt;/p&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  &lt;script&gt;</span></p>
+<p class="p1"><span class="s1">    const connectButton = document.getElementById('connectBleButton');</span></p>
+<p class="p1"><span class="s1">    const disconnectButton = document.getElementById('disconnectBleButton');</span></p>
+<p class="p1"><span class="s1">    const sendRPMButton = document.getElementById('sendRPMButton');</span></p>
+<p class="p1"><span class="s1">    const bleState = document.getElementById('bleState');</span></p>
+<p class="p1"><span class="s1">    const valueSent = document.getElementById('valueSent');</span></p>
+<p class="p1"><span class="s1">    const valueContainer = document.getElementById('valueContainer');</span></p>
+<p class="p1"><span class="s1">    const timestamp = document.getElementById('timestamp');</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">    let bleServer;</span></p>
+<p class="p1"><span class="s1">    let bleService;</span></p>
+<p class="p1"><span class="s1">    let sensorCharacteristic;</span></p>
+<p class="p1"><span class="s1">    let ledCharacteristic;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">    const serviceUUID = '19b10000-e8f2-537e-4f6c-d104768a1214';</span></p>
+<p class="p1"><span class="s1">    const sensorUUID = '19b10001-e8f2-537e-4f6c-d104768a1214';</span></p>
+<p class="p1"><span class="s1">    const ledUUID = '19b10002-e8f2-537e-4f6c-d104768a1214';</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">    connectButton.onclick = async () =&gt; {</span></p>
+<p class="p1"><span class="s1">      try {</span></p>
+<p class="p1"><span class="s1">        const device = await navigator.bluetooth.requestDevice({</span></p>
+<p class="p1"><span class="s1">          filters: [{ services: [serviceUUID] }]</span></p>
+<p class="p1"><span class="s1">        });</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">        bleServer = await device.gatt.connect();</span></p>
+<p class="p1"><span class="s1">        bleState.textContent = "Connected to " + device.name;</span></p>
+<p class="p1"><span class="s1">        bleState.style.color = "green";</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">        bleService = await bleServer.getPrimaryService(serviceUUID);</span></p>
+<p class="p1"><span class="s1">        sensorCharacteristic = await bleService.getCharacteristic(sensorUUID);</span></p>
+<p class="p1"><span class="s1">        ledCharacteristic = await bleService.getCharacteristic(ledUUID);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">        sensorCharacteristic.startNotifications();</span></p>
+<p class="p1"><span class="s1">        sensorCharacteristic.addEventListener('characteristicvaluechanged', event =&gt; {</span></p>
+<p class="p1"><span class="s1">          const value = new TextDecoder().decode(event.target.value);</span></p>
+<p class="p1"><span class="s1">          valueContainer.textContent = value;</span></p>
+<p class="p1"><span class="s1">          timestamp.textContent = new Date().toLocaleTimeString();</span></p>
+<p class="p1"><span class="s1">        });</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">        console.log("BLE connected and notifications started.");</span></p>
+<p class="p1"><span class="s1">      } catch (error) {</span></p>
+<p class="p1"><span class="s1">        console.error("BLE Connection Error:", error);</span></p>
+<p class="p1"><span class="s1">        bleState.textContent = "Connection failed";</span></p>
+<p class="p1"><span class="s1">        bleState.style.color = "red";</span></p>
+<p class="p1"><span class="s1">      }</span></p>
+<p class="p1"><span class="s1">    };</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">    disconnectButton.onclick = () =&gt; {</span></p>
+<p class="p1"><span class="s1">      if (bleServer &amp;&amp; bleServer.connected) {</span></p>
+<p class="p1"><span class="s1">        bleServer.disconnect();</span></p>
+<p class="p1"><span class="s1">        bleState.textContent = "Disconnected";</span></p>
+<p class="p1"><span class="s1">        bleState.style.color = "red";</span></p>
+<p class="p1"><span class="s1">      }</span></p>
+<p class="p1"><span class="s1">    };</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">    sendRPMButton.onclick = () =&gt; {</span></p>
+<p class="p1"><span class="s1">      const rpmValue = parseInt(document.getElementById("rpmInput").value);</span></p>
+<p class="p1"><span class="s1">      if (ledCharacteristic &amp;&amp; !isNaN(rpmValue)) {</span></p>
+<p class="p1"><span class="s1">        ledCharacteristic.writeValue(Uint8Array.of(rpmValue));</span></p>
+<p class="p1"><span class="s1">        valueSent.textContent = rpmValue + " RPM";</span></p>
+<p class="p1"><span class="s1">      } else {</span></p>
+<p class="p1"><span class="s1">        alert("Invalid RPM or BLE not connected.");</span></p>
+<p class="p1"><span class="s1">      }</span></p>
+<p class="p1"><span class="s1">    };</span></p>
+<p class="p1"><span class="s1">  &lt;/script&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">UNO:<br>
+#include &lt;Arduino.h&gt;</span></p>
+<p class="p1"><span class="s1">#include &lt;BLEDevice.h&gt;</span></p>
+<p class="p1"><span class="s1">#include &lt;BLEServer.h&gt;</span></p>
+<p class="p1"><span class="s1">#include &lt;BLEUtils.h&gt;</span></p>
+<p class="p1"><span class="s1">#include &lt;BLE2902.h&gt;</span></p>
+<p class="p1"><span class="s1">#include &lt;PID_v1.h&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">#define ENA 5</span></p>
+<p class="p1"><span class="s1">#define IN1 16</span></p>
+<p class="p1"><span class="s1">#define IN2 17</span></p>
+<p class="p1"><span class="s1">#define ENCODER_A 12</span></p>
+<p class="p1"><span class="s1">#define ENCODER_B 13</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">#define SERVICE_UUID              "19b10000-e8f2-537e-4f6c-d104768a1214"</span></p>
+<p class="p1"><span class="s1">#define SENSOR_CHARACTERISTIC_UUID "19b10001-e8f2-537e-4f6c-d104768a1214"</span></p>
+<p class="p1"><span class="s1">#define LED_CHARACTERISTIC_UUID    "19b10002-e8f2-537e-4f6c-d104768a1214"</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">BLEServer* pServer = NULL;</span></p>
+<p class="p1"><span class="s1">BLECharacteristic* pSensorCharacteristic = NULL;</span></p>
+<p class="p1"><span class="s1">BLECharacteristic* pLedCharacteristic = NULL;</span></p>
+<p class="p1"><span class="s1">bool deviceConnected = false;</span></p>
+<p class="p1"><span class="s1">bool oldDeviceConnected = false;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">double setpoint = 0, input = 0, output = 0;</span></p>
+<p class="p1"><span class="s1">double Kp = 2.0, Ki = 5.0, Kd = 1.0;</span></p>
+<p class="p1"><span class="s1">PID myPID(&amp;input, &amp;output, &amp;setpoint, Kp, Ki, Kd, DIRECT);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">volatile long encoderCount = 0;</span></p>
+<p class="p1"><span class="s1">float currentRPM = 0;</span></p>
+<p class="p1"><span class="s1">const int pulsesPerRev = 915;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">const int pwmChannel = 0;</span></p>
+<p class="p1"><span class="s1">const int pwmFreq = 5000;</span></p>
+<p class="p1"><span class="s1">const int pwmResolution = 8;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;</span></p>
+<p class="p1"><span class="s1">hw_timer_t *timer = NULL;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">class MyServerCallbacks : public BLEServerCallbacks {</span></p>
+<p class="p1"><span class="s1">  void onConnect(BLEServer* pServer) { deviceConnected = true; }</span></p>
+<p class="p1"><span class="s1">  void onDisconnect(BLEServer* pServer) { deviceConnected = false; }</span></p>
+<p class="p1"><span class="s1">};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">class MyCharacteristicCallbacks : public BLECharacteristicCallbacks {</span></p>
+<p class="p1"><span class="s1">public:</span></p>
+<p class="p1"><span class="s1">  void onWrite(BLECharacteristic* pLedCharacteristic) {</span></p>
+<p class="p1"><span class="s1">    std::string value = pLedCharacteristic-&gt;getValue();</span></p>
+<p class="p1"><span class="s1">    if (value.length() &gt; 0) {</span></p>
+<p class="p1"><span class="s1">      int received = static_cast&lt;int&gt;(value[0]);</span></p>
+<p class="p1"><span class="s1">      Serial.print("BLE Command Received: ");</span></p>
+<p class="p1"><span class="s1">      Serial.println(received);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">      if (received &gt; 0) {</span></p>
+<p class="p1"><span class="s1">        setpoint = received;</span></p>
+<p class="p1"><span class="s1">        digitalWrite(IN1, HIGH);</span></p>
+<p class="p1"><span class="s1">        digitalWrite(IN2, LOW);</span></p>
+<p class="p1"><span class="s1">      } else {</span></p>
+<p class="p1"><span class="s1">        setpoint = 0;</span></p>
+<p class="p1"><span class="s1">        digitalWrite(IN1, LOW);</span></p>
+<p class="p1"><span class="s1">        digitalWrite(IN2, LOW);</span></p>
+<p class="p1"><span class="s1">      }</span></p>
+<p class="p1"><span class="s1">    }</span></p>
+<p class="p1"><span class="s1">  }</span></p>
+<p class="p1"><span class="s1">};</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">void IRAM_ATTR onEncoderA() {</span></p>
+<p class="p1"><span class="s1">  portENTER_CRITICAL_ISR(&amp;mux);</span></p>
+<p class="p1"><span class="s1">  encoderCount++;</span></p>
+<p class="p1"><span class="s1">  portEXIT_CRITICAL_ISR(&amp;mux);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">void IRAM_ATTR calcRPM() {</span></p>
+<p class="p1"><span class="s1">  long count;</span></p>
+<p class="p1"><span class="s1">  portENTER_CRITICAL(&amp;mux);</span></p>
+<p class="p1"><span class="s1">  count = encoderCount;</span></p>
+<p class="p1"><span class="s1">  encoderCount = 0;</span></p>
+<p class="p1"><span class="s1">  portEXIT_CRITICAL(&amp;mux);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  currentRPM = (count * 60.0) / pulsesPerRev;</span></p>
+<p class="p1"><span class="s1">  input = currentRPM;</span></p>
+<p class="p1"><span class="s1">  myPID.Compute();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  ledcWrite(pwmChannel, constrain(output, 0, 255));</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  if (deviceConnected) {</span></p>
+<p class="p1"><span class="s1">    char buffer[8];</span></p>
+<p class="p1"><span class="s1">    dtostrf(currentRPM, 4, 1, buffer);</span></p>
+<p class="p1"><span class="s1">    pSensorCharacteristic-&gt;setValue(buffer);</span></p>
+<p class="p1"><span class="s1">    pSensorCharacteristic-&gt;notify();</span></p>
+<p class="p1"><span class="s1">  }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">void setup() {</span></p>
+<p class="p1"><span class="s1">  Serial.begin(115200);</span></p>
+<p class="p1"><span class="s1">  pinMode(IN1, OUTPUT);</span></p>
+<p class="p1"><span class="s1">  pinMode(IN2, OUTPUT);</span></p>
+<p class="p1"><span class="s1">  pinMode(ENCODER_A, INPUT_PULLUP);</span></p>
+<p class="p1"><span class="s1">  pinMode(ENCODER_B, INPUT_PULLUP);</span></p>
+<p class="p1"><span class="s1">  attachInterrupt(digitalPinToInterrupt(ENCODER_A), onEncoderA, RISING);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  ledcSetup(pwmChannel, pwmFreq, pwmResolution);</span></p>
+<p class="p1"><span class="s1">  ledcAttachPin(ENA, pwmChannel);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  myPID.SetMode(AUTOMATIC);</span></p>
+<p class="p1"><span class="s1">  myPID.SetOutputLimits(0, 255);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  BLEDevice::init("ESP32-MOTOR");</span></p>
+<p class="p1"><span class="s1">  pServer = BLEDevice::createServer();</span></p>
+<p class="p1"><span class="s1">  pServer-&gt;setCallbacks(new MyServerCallbacks());</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  BLEService *pService = pServer-&gt;createService(SERVICE_UUID);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  pSensorCharacteristic = pService-&gt;createCharacteristic(</span></p>
+<p class="p1"><span class="s1">    SENSOR_CHARACTERISTIC_UUID,</span></p>
+<p class="p1"><span class="s1">    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY</span></p>
+<p class="p1"><span class="s1">  );</span></p>
+<p class="p1"><span class="s1">  pSensorCharacteristic-&gt;addDescriptor(new BLE2902());</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  pLedCharacteristic = pService-&gt;createCharacteristic(</span></p>
+<p class="p1"><span class="s1">    LED_CHARACTERISTIC_UUID,</span></p>
+<p class="p1"><span class="s1">    BLECharacteristic::PROPERTY_WRITE</span></p>
+<p class="p1"><span class="s1">  );</span></p>
+<p class="p1"><span class="s1">  pLedCharacteristic-&gt;setCallbacks(new MyCharacteristicCallbacks());</span></p>
+<p class="p1"><span class="s1">  pLedCharacteristic-&gt;addDescriptor(new BLE2902());</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  pService-&gt;start();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();</span></p>
+<p class="p1"><span class="s1">  pAdvertising-&gt;addServiceUUID(SERVICE_UUID);</span></p>
+<p class="p1"><span class="s1">  pAdvertising-&gt;setScanResponse(true);  // </span><span class="s2">👈</span><span class="s1"> Giúp hiện tên với Chrome</span></p>
+<p class="p1"><span class="s1">  pAdvertising-&gt;setMinPreferred(0x06);</span></p>
+<p class="p1"><span class="s1">  pAdvertising-&gt;setMaxPreferred(0x12);</span></p>
+<p class="p1"><span class="s1">  BLEDevice::startAdvertising();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  Serial.println("BLE advertising... using scan response.");</span></p>
+<p class="p1"><span class="s1">  </span></p>
+<p class="p1"><span class="s1">  timer = timerBegin(0, 80, true);</span></p>
+<p class="p1"><span class="s1">  timerAttachInterrupt(timer, &amp;calcRPM, true);</span></p>
+<p class="p1"><span class="s1">  timerAlarmWrite(timer, 500000, true);</span></p>
+<p class="p1"><span class="s1">  timerAlarmEnable(timer);</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">void loop() {</span></p>
+<p class="p1"><span class="s1">  if (!deviceConnected &amp;&amp; oldDeviceConnected) {</span></p>
+<p class="p1"><span class="s1">    delay(500);</span></p>
+<p class="p1"><span class="s1">    pServer-&gt;startAdvertising();</span></p>
+<p class="p1"><span class="s1">    Serial.println("Re-advertising BLE...");</span></p>
+<p class="p1"><span class="s1">    oldDeviceConnected = false;</span></p>
+<p class="p1"><span class="s1">  }</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1">  if (deviceConnected &amp;&amp; !oldDeviceConnected) {</span></p>
+<p class="p1"><span class="s1">    Serial.println("Device connected.");</span></p>
+<p class="p1"><span class="s1">    oldDeviceConnected = true;</span></p>
+<p class="p1"><span class="s1">  }</span></p>
+<p class="p1"><span class="s1">}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><br>
+</span></p>
+<p class="p1"><span class="s1"><br>
+</span></p>
+</body>
+</html>
